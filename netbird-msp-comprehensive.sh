@@ -8,7 +8,7 @@
 if [ -f ".env" ]; then
     # Export variables from .env file, ignoring comments and empty lines
     set -a
-    source <(grep -E "^[A-Za-z_][A-Za-z0-9_]*=" .env)
+    source .env
     set +a
 fi
 
