@@ -120,11 +120,6 @@ The script generates three types of reports with timestamps:
 - Billing usage breakdown
 - Metadata and timestamps
 
-### 3. Executive Summary (`netbird_summary_YYYYMMDD_HHMMSS.json`)
-- High-level totals and metrics
-- Perfect for dashboards and automated processing
-- Lightweight format for quick insights
-
 ### Sample Output Structure
 
 ```json
