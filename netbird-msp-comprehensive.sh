@@ -33,7 +33,6 @@ API_BASE="https://api.netbird.io/api"
 timestamp=$(date +"%Y%m%d_%H%M%S")
 text_output_file="netbird_comprehensive_${timestamp}.txt"
 json_output_file="netbird_comprehensive_${timestamp}.json"
-summary_output_file="netbird_summary_${timestamp}.json"
 
 # Function to output to both console and file
 output() {
@@ -305,22 +304,6 @@ EOF
 
 echo "$comprehensive_report" > "$json_output_file"
 
-# Quick summary report
-summary_report=$(cat << EOF
-{
-    "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "report_type": "billing_summary",
-    "totals": {
-        "tenant_count": $tenant_count,
-        "total_registered_users": $total_registered,
-        "total_billable_users": $total_billable,
-        "total_non_billable_users": $total_difference
-    }
-}
-EOF
-)
-
-echo "$summary_report" > "$summary_output_file"
 
 output ""
 output "═══════════════════════════════════════════════════════════"
@@ -329,7 +312,6 @@ output "📁 GENERATED FILES"
 output "=================="
 output "• Comprehensive Report: $text_output_file"
 output "• Detailed JSON Data:   $json_output_file"
-output "• Executive Summary:    $summary_output_file"
 
 # Show JSON preview
 echo ""
@@ -347,4 +329,4 @@ echo "✅ Comprehensive NetBird billing analysis complete!"
 echo "📄 Reports saved to:"
 echo "   • $text_output_file"
 echo "   • $json_output_file"
-echo "   • $summary_output_file"
+
