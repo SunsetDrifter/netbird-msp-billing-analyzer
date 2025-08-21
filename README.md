@@ -139,7 +139,6 @@ The script generates three types of reports with timestamps:
 
 - **Registered Users**: Active, unblocked users in NetBird (potential cost)
 - **Billable Users**: Users who actually connected during the current billing cycle (actual cost)
-- **Difference**: Registered users who aren't connecting (cost savings opportunity)
 
 ### Interpreting Results
 
@@ -167,28 +166,8 @@ set -x
 set +x
 ```
 
-## 🔒 Security Considerations
-
-- **API Token Protection**: Never expose your API token in logs, scripts, or version control
-- **Environment Isolation**: Use different tokens for different environments (dev/staging/prod)
-- **Access Logging**: Monitor API token usage for unusual activity
-- **Regular Rotation**: Rotate API tokens according to your security policies
-
-## 📝 License
-
-This tool is provided as-is for NetBird MSP customers. Please ensure compliance with your NetBird service agreement when using this tool.
-
 ## 🤝 Support
 
 For issues related to:
 - **NetBird API**: Contact NetBird support
 - **This Tool**: Check the troubleshooting section or create an issue in this repository
-
-## 📈 Version History
-
-- **v2.0**: Environment variable support, improved error handling, comprehensive documentation
-- **v1.0**: Initial release with hardcoded token
-
----
-
-**⚠️ Important**: Always test this tool in a non-production environment first to ensure it works correctly with your specific NetBird configuration.
