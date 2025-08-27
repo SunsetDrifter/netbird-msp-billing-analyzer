@@ -29,6 +29,13 @@ fi
 TOKEN="${NETBIRD_API_TOKEN}"
 API_BASE="https://api.netbird.io/api"
 
+# Billing Plan discovery configuration (best-effort)
+# The script will try these endpoints in order and look for fields that likely contain the plan name.
+# If NetBird provides an official endpoint, add/update it here.
+BILLING_PLAN_ENDPOINT_CANDIDATES=(
+  "integrations/billing/subscription?account={ACCOUNT_ID}"
+)
+
 # Initialize output files
 timestamp=$(date +"%Y%m%d_%H%M%S")
 text_output_file="netbird_comprehensive_${timestamp}.txt"
@@ -44,19 +51,105 @@ make_api_call() {
     local endpoint="$1"
     local description="$2"
     
+    # Add timeout and better error handling
     local response=$(curl -s -w "\n%{http_code}" -X GET "${API_BASE}/${endpoint}" \
          -H 'Accept: application/json' \
-         -H "Authorization: Token ${TOKEN}")
+         -H "Authorization: Token ${TOKEN}" \
+         --max-time 30 --connect-timeout 10)
+    
+    local curl_exit_code=$?
+    
+    # Check if curl command itself failed
+    if [ $curl_exit_code -ne 0 ]; then
+        echo "❌ $description failed (curl error $curl_exit_code)" >&2
+        return 1
+    fi
     
     local http_code=$(echo "$response" | tail -n1)
     local body=$(echo "$response" | sed '$d')
     
+    # Check if we got a valid HTTP code
+    if [ -z "$http_code" ] || ! [[ "$http_code" =~ ^[0-9]+$ ]]; then
+        echo "❌ $description failed (invalid HTTP response)" >&2
+        echo "Response: $response" >&2
+        return 1
+    fi
+    
     if [ "$http_code" != "200" ]; then
         echo "❌ $description failed (HTTP $http_code)" >&2
+        echo "Response body: $body" >&2
         return 1
     fi
     
     echo "$body"
+}
+
+# Try to detect tenant billing plan (Team/Business) using multiple candidate endpoints
+get_tenant_billing_plan() {
+    local tenant_id="$1"
+
+    # Iterate over candidate endpoints and attempt detection
+    for raw in "${BILLING_PLAN_ENDPOINT_CANDIDATES[@]}"; do
+        local endpoint="${raw/{ACCOUNT_ID}/$tenant_id}"
+        local body=$(make_api_call "$endpoint" "Billing plan discovery for tenant $tenant_id")
+        if [ $? -ne 0 ] || [ -z "$body" ]; then
+            continue
+        fi
+
+        # Extract the plan_tier from the NetBird billing subscription response
+        local plan_tier=$(echo "$body" | jq -r '.plan_tier // empty' 2>/dev/null)
+        
+        if [ -n "$plan_tier" ] && [ "$plan_tier" != "null" ]; then
+            # Capitalize first letter for consistent display
+            case "$plan_tier" in
+                "team") echo "Team"; return 0 ;;
+                "business") echo "Business"; return 0 ;;
+                "enterprise") echo "Enterprise"; return 0 ;;
+                *) 
+                    # Fallback: capitalize first letter of any plan tier
+                    echo "$(echo "$plan_tier" | sed 's/^\(.*\)/\U\1/')"
+                    return 0
+                    ;;
+            esac
+        fi
+        
+        # Fallback to original heuristic search if plan_tier is missing
+        local plan_guess=$(echo "$body" | jq -r '
+            (
+              .plan? //
+              .subscription?.plan? //
+              .tier? //
+              .name? //
+              .product?
+            ) // empty | ascii_downcase' 2>/dev/null)
+
+        if [ -n "$plan_guess" ] && [ "$plan_guess" != "null" ]; then
+            if echo "$plan_guess" | grep -qi "business"; then
+                echo "Business"
+                return 0
+            fi
+            if echo "$plan_guess" | grep -qi "team"; then
+                echo "Team"
+                return 0
+            fi
+        fi
+
+        # As a fallback, try to inspect any field that contains the words plan or subscription
+        local raw_text=$(echo "$body" | jq -r 'tostring' 2>/dev/null)
+        if [ -n "$raw_text" ]; then
+            if echo "$raw_text" | grep -qi "business"; then
+                echo "Business"
+                return 0
+            fi
+            if echo "$raw_text" | grep -qi "team"; then
+                echo "Team"
+                return 0
+            fi
+        fi
+    done
+
+    echo "Unknown"
+    return 1
 }
 
 output "═══════════════════════════════════════════════════════════"
@@ -67,7 +160,6 @@ output ""
 output "📊 COMPREHENSIVE ANALYSIS:"
 output "• Registered Users = Active & unblocked users in NetBird"
 output "• Billable Users   = Users who connected in current billing cycle"
-output "• Difference       = Users registered but not connecting (cost savings)"
 output "• This uses NetBird's official billing API for accurate data"
 output ""
 
@@ -112,6 +204,30 @@ for i in $(seq 0 $((tenant_count - 1))); do
     output "🌐 Domain: $tenant_domain"
     output "🆔 ID: $tenant_id"
     output "📊 Status: $tenant_status"
+
+    # Detect billing plan (direct API call)
+    echo "  → Detecting billing plan..."
+    billing_subscription_response=$(make_api_call "integrations/billing/subscription?account=${tenant_id}" "Billing subscription for $tenant_name")
+    
+    tenant_plan="Unknown"
+    if [ $? -eq 0 ] && [ -n "$billing_subscription_response" ]; then
+        plan_tier=$(echo "$billing_subscription_response" | jq -r '.plan_tier // empty' 2>/dev/null)
+        if [ -n "$plan_tier" ] && [ "$plan_tier" != "null" ]; then
+            case "$plan_tier" in
+                "team") tenant_plan="Team" ;;
+                "business") tenant_plan="Business" ;;
+                "enterprise") tenant_plan="Enterprise" ;;
+                *) tenant_plan=$(echo "$plan_tier" | sed 's/.*/\u&/') ;;
+            esac
+        fi
+    fi
+    
+    if [ "$tenant_plan" = "Unknown" ]; then
+        output "🧾 Billing Plan: Unknown"
+        output "   ⚠️  Plan detection failed; proceeding without plan info"
+    else
+        output "🧾 Billing Plan: $tenant_plan"
+    fi
     
     if [ "$tenant_status" != "active" ]; then
         output "⚠️  Skipping inactive tenant"
@@ -171,7 +287,6 @@ for i in $(seq 0 $((tenant_count - 1))); do
     output "📈 BILLING ANALYSIS:"
     output "   Registered Users: $registered_count"
     output "   Billable Users:   $billable_count"
-    output "   Difference:       $difference"
     
     if [ "$difference" -lt 0 ]; then
         output "   ⚠️  Unusual: More billable than registered users"
@@ -230,12 +345,12 @@ for i in $(seq 0 $((tenant_count - 1))); do
         "id": "$tenant_id",
         "name": "$tenant_name", 
         "domain": "$tenant_domain",
-        "status": "$tenant_status"
+        "status": "$tenant_status",
+        "billing_plan": "${tenant_plan:-Unknown}"
     },
     "metrics": {
         "registered_active_users": $registered_count,
-        "billable_active_users": $billable_count,
-        "non_billable_users": $difference
+        "billable_active_users": $billable_count
     },
     "billing_usage": $billing_details,
     "registered_users": $user_details
@@ -264,17 +379,7 @@ output "========================"
 output "Total Tenants Analyzed:     $tenant_count"
 output "Total Registered Users:     $total_registered"
 output "Total Billable Users:       $total_billable"
-output "Total Non-Billable Users:   $total_difference"
 output ""
-
-# Additional status info if needed
-if [ "$total_difference" -gt 0 ]; then
-    output "⚠️  $total_difference users registered but not billable"
-elif [ "$total_difference" -eq 0 ]; then
-    output "✅ All registered users are billable"
-else
-    output "⚠️  More billable than registered users (unusual)"
-fi
 
 # Generate comprehensive JSON report
 echo "Generating detailed JSON reports..."
@@ -292,8 +397,7 @@ comprehensive_report=$(cat << EOF
     "executive_summary": {
         "total_tenants": $tenant_count,
         "total_registered_users": $total_registered,
-        "total_billable_users": $total_billable,
-        "total_non_billable_users": $total_difference
+        "total_billable_users": $total_billable
     },
     "tenant_details": [
         $(IFS=,; echo "${all_tenant_details[*]}")
@@ -329,4 +433,3 @@ echo "✅ Comprehensive NetBird billing analysis complete!"
 echo "📄 Reports saved to:"
 echo "   • $text_output_file"
 echo "   • $json_output_file"
-
