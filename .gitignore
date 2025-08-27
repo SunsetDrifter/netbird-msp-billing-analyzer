@@ -4,7 +4,6 @@
 # Generated Report Files
 netbird_comprehensive_*.txt
 netbird_comprehensive_*.json
-netbird_summary_*.json
 
 # macOS
 .DS_Store
