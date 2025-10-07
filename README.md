@@ -10,146 +10,42 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 - Detailed user information including roles and last login times
 - Secure API token handling via environment variables
 
-## Installation
+## Quick Start
 
-### Easy Installation (Recommended)
+### Installation
 
-We provide an automated installation script that handles everything for you:
-
-#### One-Line Installation
-
+**One-line install (recommended):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh | bash
 ```
 
-#### Manual Installation Script
+**Options:**
+- `--user` - Install to user directory (no sudo required)
+- `--help` - Show all installation options
+- `--uninstall` - Remove installation
 
-```bash
-# Download the installer
-curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh -o install.sh
+**Features:** ✅ Auto-installs dependencies ✅ Works on macOS/Linux ✅ Manages PATH automatically
 
-# Make it executable
-chmod +x install.sh
+### Setup API Token
 
-# Run with options
-./install.sh --help
-```
+1. **Get your NetBird API token:**
+   - Log into your NetBird MSP dashboard
+   - Go to Team → Service Users → Create Service User → Create Access Token
+   - Generate a new API token with **Admin permissions**
 
-#### Installation Options
-
-**System-wide Installation (Default)**
-```bash
-# Install to /usr/local/bin (may require sudo)
-./install.sh
-```
-
-**User Installation**
-```bash
-# Install to ~/.local/bin (no sudo required)
-./install.sh --user
-```
-
-**Version-specific Installation**
-```bash
-# Install a specific version
-./install.sh --version v0.9.0
-```
-
-**Force Reinstall**
-```bash
-# Reinstall even if already installed
-./install.sh --force
-```
-
-#### What the Installer Does
-
-✅ **Automatic dependency installation** - Installs `jq` if missing  
-✅ **Multiple OS support** - Works on macOS and Linux  
-✅ **Package manager detection** - Uses Homebrew, apt, yum, dnf, or zypper  
-✅ **PATH management** - Automatically adds to PATH if needed  
-✅ **Safe installation** - Never overwrites without permission  
-✅ **Easy uninstall** - Clean removal with `./install.sh --uninstall`
-
-#### Uninstallation
-
-```bash
-# Remove the installation
-./install.sh --uninstall
-```
-
-### Manual Setup (Alternative)
-
-If you prefer to install manually or the automated installer doesn't work for your system:
-
-#### Prerequisites
-
-- Bash shell (macOS, Linux, or WSL on Windows)
-- curl (for API requests)
-- jq (for JSON processing) - Install with `brew install jq` on macOS
-- NetBird MSP Account with API access
-- NetBird API Token with permissions for:
-  - MSP tenant access
-  - Billing usage and subscription data access
-  - User information access across managed tenants
-
-#### Manual Setup Instructions
-
-1. Download the script:
+2. **Set the token:**
    ```bash
-   curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/netbird-msp-comprehensive.sh -o netbird-msp-analyzer
+   export NETBIRD_API_TOKEN="your_token_here"
    ```
 
-2. Make it executable:
-   ```bash
-   chmod +x netbird-msp-analyzer
-   ```
-
-3. Move to a directory in your PATH (optional):
-   ```bash
-   sudo mv netbird-msp-analyzer /usr/local/bin/
-   # or for user installation:
-   mkdir -p ~/.local/bin && mv netbird-msp-analyzer ~/.local/bin/
-   ```
-
-4. Copy the environment template:
-   ```bash
-   curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/.env.example -o .env.example
-   cp .env.example .env
-   ```
-
-5. Edit the `.env` file with your NetBird API token:
-   ```bash
-   NETBIRD_API_TOKEN=your_actual_netbird_api_token_here
-   ```
-
-## NetBird API Token Setup
-
-1. Log into your NetBird MSP dashboard
-2. Navigate to Team → Service Users → Create Service User → Create Access Token
-3. Generate a new API token with Admin permissions
-4. Save the token securely
-
-### Required API Endpoints
-
-Your API token must have access to:
-- `GET /api/integrations/msp/tenants` - List all MSP tenants
-- `GET /api/integrations/billing/usage` - Read billing usage per tenant
-- `GET /api/integrations/billing/subscription` - Read billing plan per tenant
-- `GET /api/users` - Read user information per tenant
-
-## Usage
-
-After installation, you can run the analyzer using the installed command:
+### Usage
 
 ```bash
-# Run the analysis (if installed via installer)
+# Run the analyzer
 netbird-msp-analyzer
 
-# Or run with explicit environment variable
+# Or with inline token
 NETBIRD_API_TOKEN="your_token_here" netbird-msp-analyzer
-
-# If running the script directly (manual setup)
-./netbird-msp-comprehensive.sh
 ```
 
 ## Output Files
@@ -219,6 +115,23 @@ The script generates two types of reports with timestamps:
 ## License
 
 This tool is provided as-is for NetBird MSP customers. Ensure compliance with your NetBird service agreement.
+
+## Manual Installation
+
+<details>
+<summary>Click to expand manual installation instructions</summary>
+
+### Prerequisites
+- Bash, curl, jq
+- NetBird MSP account with API access
+
+### Steps
+1. Download: `curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/netbird-msp-comprehensive.sh -o netbird-msp-analyzer`
+2. Make executable: `chmod +x netbird-msp-analyzer`
+3. Optionally move to PATH: `sudo mv netbird-msp-analyzer /usr/local/bin/`
+4. Set API token: `export NETBIRD_API_TOKEN="your_token"`
+
+</details>
 
 ## Support
 
