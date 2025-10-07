@@ -10,7 +10,78 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 - Detailed user information including roles and last login times
 - Secure API token handling via environment variables
 
-## Prerequisites
+## Installation
+
+### Easy Installation (Recommended)
+
+We provide an automated installation script that handles everything for you:
+
+#### One-Line Installation
+
+```bash
+curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh | bash
+```
+
+#### Manual Installation Script
+
+```bash
+# Download the installer
+curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh -o install.sh
+
+# Make it executable
+chmod +x install.sh
+
+# Run with options
+./install.sh --help
+```
+
+#### Installation Options
+
+**System-wide Installation (Default)**
+```bash
+# Install to /usr/local/bin (may require sudo)
+./install.sh
+```
+
+**User Installation**
+```bash
+# Install to ~/.local/bin (no sudo required)
+./install.sh --user
+```
+
+**Version-specific Installation**
+```bash
+# Install a specific version
+./install.sh --version v0.9.0
+```
+
+**Force Reinstall**
+```bash
+# Reinstall even if already installed
+./install.sh --force
+```
+
+#### What the Installer Does
+
+✅ **Automatic dependency installation** - Installs `jq` if missing  
+✅ **Multiple OS support** - Works on macOS and Linux  
+✅ **Package manager detection** - Uses Homebrew, apt, yum, dnf, or zypper  
+✅ **PATH management** - Automatically adds to PATH if needed  
+✅ **Safe installation** - Never overwrites without permission  
+✅ **Easy uninstall** - Clean removal with `./install.sh --uninstall`
+
+#### Uninstallation
+
+```bash
+# Remove the installation
+./install.sh --uninstall
+```
+
+### Manual Setup (Alternative)
+
+If you prefer to install manually or the automated installer doesn't work for your system:
+
+#### Prerequisites
 
 - Bash shell (macOS, Linux, or WSL on Windows)
 - curl (for API requests)
@@ -21,21 +92,34 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
   - Billing usage and subscription data access
   - User information access across managed tenants
 
-## Setup Instructions
+#### Manual Setup Instructions
 
-1. Copy the environment template:
+1. Download the script:
    ```bash
+   curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/netbird-msp-comprehensive.sh -o netbird-msp-analyzer
+   ```
+
+2. Make it executable:
+   ```bash
+   chmod +x netbird-msp-analyzer
+   ```
+
+3. Move to a directory in your PATH (optional):
+   ```bash
+   sudo mv netbird-msp-analyzer /usr/local/bin/
+   # or for user installation:
+   mkdir -p ~/.local/bin && mv netbird-msp-analyzer ~/.local/bin/
+   ```
+
+4. Copy the environment template:
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/.env.example -o .env.example
    cp .env.example .env
    ```
 
-2. Edit the `.env` file with your NetBird API token:
+5. Edit the `.env` file with your NetBird API token:
    ```bash
    NETBIRD_API_TOKEN=your_actual_netbird_api_token_here
-   ```
-
-3. Make the script executable:
-   ```bash
-   chmod +x netbird-msp-comprehensive.sh
    ```
 
 ## NetBird API Token Setup
@@ -55,12 +139,17 @@ Your API token must have access to:
 
 ## Usage
 
+After installation, you can run the analyzer using the installed command:
+
 ```bash
-# Run the analysis
-./netbird-msp-comprehensive.sh
+# Run the analysis (if installed via installer)
+netbird-msp-analyzer
 
 # Or run with explicit environment variable
-NETBIRD_API_TOKEN="your_token_here" ./netbird-msp-comprehensive.sh
+NETBIRD_API_TOKEN="your_token_here" netbird-msp-analyzer
+
+# If running the script directly (manual setup)
+./netbird-msp-comprehensive.sh
 ```
 
 ## Output Files
