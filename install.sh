@@ -198,7 +198,9 @@ install_deps_linux() {
 get_latest_version() {
     local api_url="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
     
-    print_info "Checking for latest release..."
+    if [[ "$QUIET" != true ]]; then
+        print_info "Checking for latest release..."
+    fi
     
     local response
     if ! response=$(curl -sf "$api_url" 2>/dev/null); then
@@ -230,7 +232,9 @@ download_and_install() {
     # Set up cleanup trap
     trap "rm -rf '$temp_dir'" EXIT
     
-    print_info "Downloading NetBird MSP Billing Analyzer $version..."
+    if [[ "$QUIET" != true ]]; then
+        print_info "Downloading NetBird MSP Billing Analyzer $version..."
+    fi
     
     # Download the main script
     local download_url="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$version/$SCRIPT_NAME"
@@ -258,7 +262,9 @@ download_and_install() {
     # Install the script
     local target_script="$INSTALL_DIR/$BINARY_NAME"
     
-    print_info "Installing to $target_script..."
+    if [[ "$QUIET" != true ]]; then
+        print_info "Installing to $target_script..."
+    fi
     
     # Create installation directory if it doesn't exist
     if [[ ! -d "$INSTALL_DIR" ]]; then
@@ -484,7 +490,9 @@ main() {
         VERSION=$(get_latest_version)
     fi
     
-    print_info "Installing version: $VERSION"
+    if [[ "$QUIET" != true ]]; then
+        print_info "Installing version: $VERSION"
+    fi
     
     # Download and install
     download_and_install "$VERSION"
