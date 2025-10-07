@@ -198,10 +198,6 @@ install_deps_linux() {
 get_latest_version() {
     local api_url="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
     
-    if [[ "$QUIET" != true ]]; then
-        print_info "Checking for latest release..."
-    fi
-    
     local response
     if ! response=$(curl -sf "$api_url" 2>/dev/null); then
         print_error "Failed to fetch release information from GitHub"
@@ -487,7 +483,14 @@ main() {
     
     # Get version to install
     if [[ -z "$VERSION" ]]; then
+        if [[ "$QUIET" != true ]]; then
+            print_info "Checking for latest release..."
+        fi
         VERSION=$(get_latest_version)
+        if [[ $? -ne 0 ]]; then
+            print_error "Failed to determine version to install"
+            exit 1
+        fi
     fi
     
     if [[ "$QUIET" != true ]]; then
