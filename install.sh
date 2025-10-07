@@ -496,7 +496,5 @@ main() {
     show_post_install
 }
 
-# Run main function if script is executed directly
-if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
-    main "$@"
-fi
+# Run main function
+main "$@"
