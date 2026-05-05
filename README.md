@@ -126,7 +126,7 @@ This tool is provided as-is for NetBird MSP customers. Ensure compliance with yo
 - NetBird MSP account with API access
 
 ### Steps
-1. Download: `curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/netbird-msp-comprehensive.sh -o netbird-msp-analyzer`
+1. Download: `curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/analyzer.sh -o netbird-msp-analyzer`
 2. Make executable: `chmod +x netbird-msp-analyzer`
 3. Optionally move to PATH: `sudo mv netbird-msp-analyzer /usr/local/bin/`
 4. Set API token: `export NETBIRD_API_TOKEN="your_token"`
