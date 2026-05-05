@@ -9,7 +9,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # Configuration
 readonly REPO_OWNER="SunsetDrifter"
 readonly REPO_NAME="netbird-msp-billing-analyzer"
-readonly SCRIPT_NAME="netbird-msp-comprehensive.sh"
+readonly SCRIPT_NAME="analyzer.sh"
 readonly BINARY_NAME="netbird-msp-analyzer"
 
 # Color codes for output
