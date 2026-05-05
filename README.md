@@ -6,6 +6,7 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 
 - Analyze registered users vs billable users across all MSP tenants
 - Display billing plan for each tenant (Team, Business)
+- Estimate per-tenant and portfolio invoices with the MSP partner discount applied
 - Generate human-readable text reports and structured JSON output
 - Detailed user information including roles and last login times
 - Secure API token handling via environment variables
@@ -68,20 +69,77 @@ The script generates two types of reports with timestamps:
 
 ```json
 {
+  "schema_version": 1,
+  "report_metadata": {
+    "generated_at": "2026-05-05T18:40:17Z",
+    "billing_cycle_note": "NetBird MSP issues two invoices each cycle: type=\"account\" (master) and type=\"tenants\" (consolidated). See msp_account.billing_periods.",
+    "version": "v0.11.0"
+  },
+  "msp_account": {
+    "id": "...",
+    "name": "...",
+    "subscription": {
+      "plan_tier_id": "business",
+      "per_user_list_price_cents": 1200,
+      "price_id": "price_1OrdvHKina3I2KUbPXVVGkRt",
+      "provider": "stripe"
+    },
+    "billing_periods": {
+      "latest_account_invoice": {"id": "in_...", "period_start": "...", "period_end": "..."},
+      "latest_tenants_invoice": {"id": "in_...", "period_start": "...", "period_end": "..."},
+      "current_open_period_started_at": "<latest_tenants_invoice.period_end>"
+    }
+  },
   "executive_summary": {
     "total_tenants": 4,
     "total_registered_users": 150,
-    "total_billable_users": 120
+    "total_billable_users": 120,
+    "msp_discount_pct": 30,
+    "tenants_priced": 4,
+    "tenants_skipped_unpriced": 0,
+    "totals_by_currency": {
+      "usd": {
+        "gross_estimate_cents": 144000,
+        "discount_amount_cents": 43200,
+        "net_estimate_cents": 100800
+      }
+    }
   },
   "tenant_details": [{
-    "tenant_info": {
-      "id": "tenant_id",
-      "name": "Tenant Name",
-      "billing_plan": "Team"
+    "tenant_info": {"id": "...", "name": "...", "billing_plan": "Team", "billing_plan_id": "team"},
+    "subscription": {
+      "plan_tier_id": "team",
+      "currency": "usd",
+      "per_user_list_price_cents": 600,
+      "price_id": "price_1SZc3pKina3I2KUblUEXpQS7",
+      "provider": "stripe",
+      "active": true,
+      "updated_at": "..."
+    },
+    "metrics": {"registered_active_users": 12, "billable_active_users": 10},
+    "pricing": {
+      "priceable": true,
+      "currency": "usd",
+      "per_user_list_price_cents": 600,
+      "billable_users": 10,
+      "gross_estimate_cents": 6000,
+      "discount_pct": 30,
+      "discount_amount_cents": 1800,
+      "net_estimate_cents": 4200
     }
   }]
 }
 ```
+
+### Designed for Billing Integrations
+
+- **All monetary values are integer cents** (e.g. `600` = $6.00). Stripe-style — no floating-point precision loss.
+- **`schema_version`** at the JSON root lets consumers gate against future shape changes.
+- **The report is a point-in-time snapshot**, not an invoice. NetBird issues two invoices per cycle to MSPs: one for the master account (`type: "account"`) and one consolidated invoice covering all tenants (`type: "tenants"`). The latest closed invoice of each type is exposed under `msp_account.billing_periods`.
+- **Current open cycle** for the consolidated tenant invoice starts at `msp_account.billing_periods.current_open_period_started_at` (= the latest closed tenant invoice's `period_end`). NetBird does not expose the *end* of the open period; use Stripe (via `msp_account.subscription.price_id`) for authoritative `current_period_end`.
+- **`subscription.price_id`** is the upstream Stripe price ID — use this as the SKU when mapping to your billing system. Each tenant has its own `subscription.price_id` and the master account has one too (under `msp_account.subscription.price_id`).
+- **CSV rows are self-attributing**: every row carries `snapshot_taken_at`, `msp_account_id`, and `current_open_period_started_at`, so concatenated snapshots don't lose context.
+- **Per-tenant `pricing` and portfolio `executive_summary.totals_by_currency` use identical field names** (`gross_estimate_cents` / `discount_amount_cents` / `net_estimate_cents`) so a single parser handles both.
 
 ## Understanding the Analysis
 
@@ -96,6 +154,24 @@ The script generates two types of reports with timestamps:
 - Compare registered vs billable users to understand actual usage
 - Review billing plans across tenants for consistency
 - Identify users who haven't logged in recently
+
+### Invoice Estimates
+
+The report includes an `INVOICE ESTIMATES` section that turns billable user counts into a dollar/euro estimate using each tenant's actual list price (read live from `integrations/billing/subscription.price`) plus the MSP partner discount.
+
+**MSP partner discount** — applied to every priceable tenant based on the **total** active users across the entire MSP portfolio (not per-tenant):
+
+| Total active users | Discount |
+| --- | --- |
+| 0–99 | 20% |
+| 100–499 | 30% |
+| 500+ | 35% |
+
+**Currency** is read per-tenant from the subscription. Mixed-currency portfolios get separate per-currency subtotals (no FX conversion).
+
+**Enterprise tenants** and tenants where the API doesn't return a price are reported as `N/A` and excluded from totals.
+
+Estimates are pre-tax — actual invoices may differ due to negotiated terms, coupons, mid-cycle changes, or proration. All times are UTC.
 
 ## Troubleshooting
 
