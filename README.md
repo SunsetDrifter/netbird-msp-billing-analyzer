@@ -21,8 +21,14 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh | bash
 ```
 
+**Pin a specific version (for reproducible deploys):**
+```bash
+curl -sSL https://raw.githubusercontent.com/SunsetDrifter/netbird-msp-billing-analyzer/main/install.sh | bash -s -- --version v0.11.0
+```
+
 **Options:**
 - `--user` - Install to user directory (no sudo required)
+- `--version <tag>` - Pin a specific release tag (e.g. `v0.11.0`)
 - `--help` - Show all installation options
 - `--uninstall` - Remove installation
 
