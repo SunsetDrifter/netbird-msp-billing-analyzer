@@ -52,7 +52,7 @@ NETBIRD_API_TOKEN="your_token_here" netbird-msp-analyzer
 
 ## Output Files
 
-By default the script generates three timestamped reports — `.txt`, `.json`, and `.csv`. Use `--json-only`, `--text-only`, or `--no-csv` to suppress any of them.
+By default the script generates four timestamped reports — `.txt`, `.json`, `.csv`, and `_users.csv`. Use `--json-only`, `--text-only`, `--no-csv`, or `--no-users-csv` to suppress any of them.
 
 ### 1. Text Report (`netbird_comprehensive_YYYYMMDD_HHMMSS.txt`)
 - Human-readable format with MSP-account banner, per-tenant breakdown, and invoice estimates
@@ -70,6 +70,11 @@ By default the script generates three timestamped reports — `.txt`, `.json`, a
 - All money in integer cents (`per_user_list_price_cents`, `gross_estimate_cents`, `discount_amount_cents`, `net_estimate_cents`)
 - Explicit `priceable` and `subscription_active` boolean columns (typed bools via `@csv`, no NULL inference)
 - Stripe `price_id` and `provider` columns for direct join with your billing system
+
+### 4. Users CSV (`netbird_comprehensive_YYYYMMDD_HHMMSS_users.csv`)
+- One row per registered user across all tenants — pulled from the per-tenant text/console output to keep the human-readable report short
+- Columns: `snapshot_taken_at`, `msp_account_id`, `tenant_id`, `tenant_name`, `user_id`, `name`, `email`, `role`, `last_login`, `status`, `is_blocked`, `is_service_user`
+- Same data is also available under `tenant_details[].registered_users` in the JSON output
 
 ### Sample JSON Structure
 
