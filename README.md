@@ -9,7 +9,7 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 - Estimate per-tenant and portfolio invoices with the MSP partner discount applied
 - Surface MSP master subscription, latest closed invoices, and current open cycle anchor
 - Detect tenant/master currency mismatches before they reach billing
-- Generate human-readable text, structured JSON, and self-attributing CSV outputs
+- Generate human-readable text, structured JSON, a self-attributing tenants CSV, and a per-user audit CSV
 - Secure API token handling via environment variables
 
 ## Quick Start
@@ -170,7 +170,7 @@ By default the script generates four timestamped reports — `.txt`, `.json`, `.
 
 - Compare registered vs billable users to understand actual usage
 - Review billing plans across tenants for consistency
-- Identify users who haven't logged in recently
+- Identify users who haven't logged in recently — sort the `_users.csv` by `last_login`
 
 ### Invoice Estimates
 
