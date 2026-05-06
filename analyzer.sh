@@ -633,11 +633,39 @@ totals_by_currency=$(echo "$tenants_array" | jq '
 priced_count=$(echo "$tenants_array" | jq '[.[] | select(.pricing.priceable)] | length')
 unpriced_count=$(echo "$tenants_array" | jq '[.[] | select(.pricing.priceable | not)] | length')
 
+# Currency consistency check — every tenant subscription should match the MSP
+# master subscription's currency, since they roll up onto a single consolidated
+# tenant invoice. A divergence likely indicates upstream misconfiguration.
+master_currency=$(echo "$msp_subscription_json" | jq -r '.currency // ""')
+currency_consistency_json=$(echo "$tenants_array" | jq --arg master "$master_currency" '
+    [.[] | select(.subscription.currency != "" and .subscription.currency != null and .subscription.currency != $master)]
+    | {
+        master_currency: $master,
+        is_consistent: (length == 0),
+        divergent_tenants: map({
+            tenant_id: .tenant_info.id,
+            name: .tenant_info.name,
+            currency: .subscription.currency
+        })
+    }
+')
+
 # jq prelude: currency symbol + cents-to-display formatting ("DDD.CC")
 JQ_FMT='
 def sym($c): if $c=="usd" then "$" elif $c=="eur" then "€" elif $c=="gbp" then "£" else ($c | ascii_upcase + " ") end;
 def cents_str: (. // 0 | round) as $c | ($c / 100 | floor | tostring) + "." + (("00" + ($c % 100 | tostring))[-2:]);
 '
+
+if [ "$(echo "$currency_consistency_json" | jq -r '.is_consistent')" = "false" ]; then
+    output ""
+    output "⚠️  CURRENCY MISMATCH DETECTED"
+    output "   Master subscription currency: $(echo "$currency_consistency_json" | jq -r '.master_currency | ascii_upcase')"
+    output "   Tenants with divergent currency:"
+    while IFS= read -r line; do
+        output "     • $line"
+    done < <(echo "$currency_consistency_json" | jq -r '.divergent_tenants[] | "\(.name) (\(.currency | ascii_upcase)) — \(.tenant_id)"')
+    output "   Verify before billing — the consolidated tenant invoice expects a single currency."
+fi
 
 output ""
 output "═══════════════════════════════════════════════════════════"
@@ -725,6 +753,7 @@ if [ -n "$json_output_file" ]; then
         --argjson priced_count "$priced_count" \
         --argjson unpriced_count "$unpriced_count" \
         --argjson msp_account "$msp_account_json" \
+        --argjson currency_consistency "$currency_consistency_json" \
         '{
             schema_version: 1,
             report_metadata: {
@@ -744,6 +773,7 @@ if [ -n "$json_output_file" ]; then
                 msp_discount_basis_users: $total_billable,
                 tenants_priced: $priced_count,
                 tenants_skipped_unpriced: $unpriced_count,
+                currency_consistency: $currency_consistency,
                 totals_by_currency: ($totals_by_currency | map({(.currency): {gross_estimate_cents: .gross_estimate_cents, discount_amount_cents: .discount_amount_cents, net_estimate_cents: .net_estimate_cents}}) | add // {})
             },
             tenant_details: $tenants
