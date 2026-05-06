@@ -36,6 +36,7 @@ tenant_filter=""
 json_only=false
 text_only=false
 csv_enabled=true
+users_csv_enabled=true
 quiet=false
 
 show_help() {
@@ -54,6 +55,7 @@ OPTIONS:
     --json-only             Skip writing the .txt report
     --text-only             Skip writing the .json report
     --no-csv                Skip writing the .csv summary
+    --no-users-csv          Skip writing the _users.csv (one row per user)
     -q, --quiet             Suppress progress messages
 
 ENVIRONMENT:
@@ -61,9 +63,10 @@ ENVIRONMENT:
                             Loaded from .env in CWD if present.
 
 OUTPUT:
-    netbird_comprehensive_<timestamp>.txt   Human-readable report
-    netbird_comprehensive_<timestamp>.json  Structured data
-    netbird_comprehensive_<timestamp>.csv   One row per tenant (suppress with --no-csv)
+    netbird_comprehensive_<timestamp>.txt        Human-readable report
+    netbird_comprehensive_<timestamp>.json       Structured data
+    netbird_comprehensive_<timestamp>.csv        One row per tenant (suppress with --no-csv)
+    netbird_comprehensive_<timestamp>_users.csv  One row per registered user (suppress with --no-users-csv)
 
 EOF
 }
@@ -109,6 +112,10 @@ parse_args() {
                 ;;
             --no-csv)
                 csv_enabled=false
+                shift
+                ;;
+            --no-users-csv)
+                users_csv_enabled=false
                 shift
                 ;;
             -q|--quiet)
@@ -378,9 +385,11 @@ prefix="${output_dir:-.}/netbird_comprehensive_${timestamp}"
 text_output_file=""
 json_output_file=""
 csv_output_file=""
+users_csv_output_file=""
 [ "$json_only" != true ] && text_output_file="${prefix}.txt"
 [ "$text_only" != true ] && json_output_file="${prefix}.json"
 [ "$csv_enabled" = true ] && csv_output_file="${prefix}.csv"
+[ "$users_csv_enabled" = true ] && users_csv_output_file="${prefix}_users.csv"
 
 output "═══════════════════════════════════════════════════════════"
 output "          NETBIRD MSP COMPREHENSIVE BILLING REPORT"
@@ -500,35 +509,6 @@ for i in $(seq 0 $((tenant_count - 1))); do
     output "   Total Peers:      $total_peers"
 
     if [ "$registered_count" -gt 0 ] && [ "$user_details" != "[]" ]; then
-        output ""
-        output "👥 REGISTERED USER DETAILS:"
-
-        billing_status="Not Billable"
-        if [ "$billable_count" -gt 0 ]; then
-            billing_status="Billable"
-        fi
-
-        user_table=$(echo "$user_details" | jq -r --arg billing_status "$billing_status" '
-            if length > 0 then
-                ["Name", "Email", "Role", "Last Login", "Billing Status"] as $headers |
-                $headers, (["----", "-----", "----", "----------", "--------------"]) ,
-                (.[] | [
-                    (.name // "N/A"),
-                    .email,
-                    (.role // "user"),
-                    (if .last_login == "0001-01-01T00:00:00Z" or .last_login == null then "Never" else .last_login end),
-                    $billing_status
-                ]) | @tsv
-            else
-                "No active users found"
-            end
-        ' 2>/dev/null | column -t -s $'\t' | sed 's/^/   /')
-
-        echo "$user_table"
-        if [ "$json_only" != true ] && [ -n "$text_output_file" ]; then
-            echo "$user_table" >> "$text_output_file"
-        fi
-
         output ""
         output "📋 Role Distribution:"
         roles=$(echo "$user_details" | jq -r 'group_by(.role // "user") | map("   • \(length) \(.[0].role // "user")\(if length == 1 then "" else "s" end)") | .[]' 2>/dev/null)
@@ -823,14 +803,40 @@ if [ -n "$csv_output_file" ]; then
     } > "$csv_output_file"
 fi
 
+if [ -n "$users_csv_output_file" ]; then
+    log_progress "Generating users CSV..."
+
+    {
+        echo "snapshot_taken_at,msp_account_id,tenant_id,tenant_name,user_id,name,email,role,last_login,status,is_blocked,is_service_user"
+        echo "$tenants_array" | jq -r \
+            --arg generated_at "$report_generated_at" \
+            --arg msp_account_id "$msp_account_id" \
+            '.[] as $t | $t.registered_users[]? | [
+                $generated_at,
+                $msp_account_id,
+                $t.tenant_info.id,
+                $t.tenant_info.name,
+                (.id // ""),
+                (.name // ""),
+                (.email // ""),
+                (.role // ""),
+                (if .last_login == "0001-01-01T00:00:00Z" or .last_login == null then "" else .last_login end),
+                (.status // ""),
+                (.is_blocked // false),
+                (.is_service_user // false)
+            ] | @csv'
+    } > "$users_csv_output_file"
+fi
+
 output ""
 output "═══════════════════════════════════════════════════════════"
 output ""
 output "📁 GENERATED FILES"
 output "=================="
-[ -n "$text_output_file" ] && output "• Comprehensive Report: $text_output_file"
-[ -n "$json_output_file" ] && output "• Detailed JSON Data:   $json_output_file"
-[ -n "$csv_output_file" ]  && output "• CSV Summary:          $csv_output_file"
+[ -n "$text_output_file" ]       && output "• Comprehensive Report: $text_output_file"
+[ -n "$json_output_file" ]       && output "• Detailed JSON Data:   $json_output_file"
+[ -n "$csv_output_file" ]        && output "• CSV Summary:          $csv_output_file"
+[ -n "$users_csv_output_file" ]  && output "• Users CSV:            $users_csv_output_file"
 
 if [ -n "$json_output_file" ] && [ "$quiet" != true ]; then
     echo ""
@@ -846,9 +852,10 @@ output "════════════════════════
 
 log_progress ""
 log_progress "✅ Comprehensive NetBird billing analysis complete!"
-if [ -n "$text_output_file" ] || [ -n "$json_output_file" ] || [ -n "$csv_output_file" ]; then
+if [ -n "$text_output_file" ] || [ -n "$json_output_file" ] || [ -n "$csv_output_file" ] || [ -n "$users_csv_output_file" ]; then
     log_progress "📄 Reports saved to:"
-    [ -n "$text_output_file" ] && log_progress "   • $text_output_file"
-    [ -n "$json_output_file" ] && log_progress "   • $json_output_file"
-    [ -n "$csv_output_file" ]  && log_progress "   • $csv_output_file"
+    [ -n "$text_output_file" ]      && log_progress "   • $text_output_file"
+    [ -n "$json_output_file" ]      && log_progress "   • $json_output_file"
+    [ -n "$csv_output_file" ]       && log_progress "   • $csv_output_file"
+    [ -n "$users_csv_output_file" ] && log_progress "   • $users_csv_output_file"
 fi
