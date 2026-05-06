@@ -35,7 +35,7 @@ output_dir=""
 tenant_filter=""
 json_only=false
 text_only=false
-csv_enabled=false
+csv_enabled=true
 quiet=false
 
 show_help() {
@@ -53,7 +53,7 @@ OPTIONS:
     -t, --tenant ID         Run only against the given tenant ID
     --json-only             Skip writing the .txt report
     --text-only             Skip writing the .json report
-    --csv                   Also write a .csv summary (one row per tenant)
+    --no-csv                Skip writing the .csv summary
     -q, --quiet             Suppress progress messages
 
 ENVIRONMENT:
@@ -63,7 +63,7 @@ ENVIRONMENT:
 OUTPUT:
     netbird_comprehensive_<timestamp>.txt   Human-readable report
     netbird_comprehensive_<timestamp>.json  Structured data
-    netbird_comprehensive_<timestamp>.csv   One row per tenant (with --csv)
+    netbird_comprehensive_<timestamp>.csv   One row per tenant (suppress with --no-csv)
 
 EOF
 }
@@ -107,8 +107,8 @@ parse_args() {
                 text_only=true
                 shift
                 ;;
-            --csv)
-                csv_enabled=true
+            --no-csv)
+                csv_enabled=false
                 shift
                 ;;
             -q|--quiet)
@@ -428,7 +428,6 @@ for i in $(seq 0 $((tenant_count - 1))); do
     output "🆔 ID: $tenant_id"
     output "📊 Status: $tenant_status"
 
-    log_progress "  → Detecting billing plan..."
     subscription_json=$(fetch_subscription "$tenant_id")
     tenant_plan=$(echo "$subscription_json" | jq -r '.plan_tier')
     tenant_plan_id=$(echo "$subscription_json" | jq -r '.plan_tier_id')
@@ -446,7 +445,6 @@ for i in $(seq 0 $((tenant_count - 1))); do
         continue
     fi
 
-    log_progress "  → Fetching registered users..."
     users_response=$(make_api_call "users?service_user=false&account=${tenant_id}" "Users for $tenant_name")
     registered_count=0
     user_details="[]"
@@ -458,7 +456,6 @@ for i in $(seq 0 $((tenant_count - 1))); do
         output "⚠️  Failed to fetch registered users"
     fi
 
-    log_progress "  → Fetching billing usage..."
     billing_response=$(make_api_call "integrations/billing/usage?account=${tenant_id}" "Billing usage for $tenant_name")
     billable_count=0
     billing_details='{"active_users": 0, "active_peers": 0, "total_users": 0, "total_peers": 0}'
