@@ -7,8 +7,9 @@ Command-line tool for NetBird Managed Service Providers to analyze billing usage
 - Analyze registered users vs billable users across all MSP tenants
 - Display billing plan for each tenant (Team, Business)
 - Estimate per-tenant and portfolio invoices with the MSP partner discount applied
-- Generate human-readable text reports and structured JSON output
-- Detailed user information including roles and last login times
+- Surface MSP master subscription, latest closed invoices, and current open cycle anchor
+- Detect tenant/master currency mismatches before they reach billing
+- Generate human-readable text, structured JSON, and self-attributing CSV outputs
 - Secure API token handling via environment variables
 
 ## Quick Start
@@ -51,19 +52,24 @@ NETBIRD_API_TOKEN="your_token_here" netbird-msp-analyzer
 
 ## Output Files
 
-The script generates two types of reports with timestamps:
+By default the script generates three timestamped reports — `.txt`, `.json`, and `.csv`. Use `--json-only`, `--text-only`, or `--no-csv` to suppress any of them.
 
 ### 1. Text Report (`netbird_comprehensive_YYYYMMDD_HHMMSS.txt`)
-- Human-readable format with detailed analysis
-- Tenant-by-tenant breakdown including billing plans
-- User details and role distribution
-- Executive summary
+- Human-readable format with MSP-account banner, per-tenant breakdown, and invoice estimates
+- Currency-mismatch warning surfaced inline if any tenant diverges from the master
+- Executive summary with discount tier and per-currency totals
 
 ### 2. JSON Report (`netbird_comprehensive_YYYYMMDD_HHMMSS.json`)
-- Structured data for all tenants
-- Individual user records
-- Billing usage breakdown
-- Tenant billing plans
+- `schema_version` at the root for forward-compat
+- `msp_account` block (master subscription, latest invoices, current open period anchor)
+- `tenant_details[]` with subscription, metrics, billing usage, registered users, and pricing
+- `executive_summary` with totals, discount, and `currency_consistency` block
+
+### 3. CSV Summary (`netbird_comprehensive_YYYYMMDD_HHMMSS.csv`)
+- One row per tenant; every row carries `snapshot_taken_at`, `msp_account_id`, and `current_open_period_started_at` so concatenated snapshots stay self-attributing
+- All money in integer cents (`per_user_list_price_cents`, `gross_estimate_cents`, `discount_amount_cents`, `net_estimate_cents`)
+- Explicit `priceable` and `subscription_active` boolean columns (typed bools via `@csv`, no NULL inference)
+- Stripe `price_id` and `provider` columns for direct join with your billing system
 
 ### Sample JSON Structure
 
@@ -97,6 +103,11 @@ The script generates two types of reports with timestamps:
     "msp_discount_pct": 30,
     "tenants_priced": 4,
     "tenants_skipped_unpriced": 0,
+    "currency_consistency": {
+      "master_currency": "usd",
+      "is_consistent": true,
+      "divergent_tenants": []
+    },
     "totals_by_currency": {
       "usd": {
         "gross_estimate_cents": 144000,
@@ -167,7 +178,9 @@ The report includes an `INVOICE ESTIMATES` section that turns billable user coun
 | 100–499 | 30% |
 | 500+ | 35% |
 
-**Currency** is read per-tenant from the subscription. Mixed-currency portfolios get separate per-currency subtotals (no FX conversion).
+**Currency** is read live per-subscription (master + per-tenant) from the API — no hardcoded assumption. Symbols (`$` / `€` / `£`) and per-currency subtotals are driven by that field. Mixed-currency portfolios get separate per-currency subtotals (no FX conversion).
+
+**Currency consistency check** — the consolidated tenant invoice rolls up under a single currency, so the analyzer compares each tenant's currency against the MSP master subscription's currency. Any divergence is flagged inline in the text report (`⚠️ CURRENCY MISMATCH DETECTED`) and exposed in `executive_summary.currency_consistency` for automated alerting.
 
 **Enterprise tenants** and tenants where the API doesn't return a price are reported as `N/A` and excluded from totals.
 
