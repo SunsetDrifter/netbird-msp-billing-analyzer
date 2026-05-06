@@ -758,7 +758,7 @@ if [ -n "$csv_output_file" ]; then
     log_progress "Generating CSV summary..."
 
     {
-        echo "snapshot_taken_at,msp_account_id,current_open_period_started_at,tenant_id,tenant_name,domain,status,billing_plan,billing_plan_id,price_id,provider,subscription_updated_at,registered_users,billable_users,active_peers,total_users,total_peers,currency,per_user_list_price_cents,gross_estimate_cents,discount_pct,discount_amount_cents,net_estimate_cents"
+        echo "snapshot_taken_at,msp_account_id,current_open_period_started_at,tenant_id,tenant_name,domain,status,billing_plan,billing_plan_id,price_id,provider,subscription_active,subscription_updated_at,registered_users,billable_users,active_peers,total_users,total_peers,priceable,currency,per_user_list_price_cents,gross_estimate_cents,discount_pct,discount_amount_cents,net_estimate_cents"
         echo "$tenants_array" | jq -r \
             --arg generated_at "$report_generated_at" \
             --arg msp_account_id "$msp_account_id" \
@@ -775,12 +775,14 @@ if [ -n "$csv_output_file" ]; then
                 .tenant_info.billing_plan_id,
                 .subscription.price_id,
                 .subscription.provider,
+                .subscription.active,
                 .subscription.updated_at,
                 .metrics.registered_active_users,
                 .metrics.billable_active_users,
                 (.billing_usage.active_peers // 0),
                 (.billing_usage.total_users // 0),
                 (.billing_usage.total_peers // 0),
+                .pricing.priceable,
                 (if .pricing.priceable then .pricing.currency else "" end),
                 (if .pricing.priceable then .pricing.per_user_list_price_cents else "" end),
                 (if .pricing.priceable then .pricing.gross_estimate_cents else "" end),
